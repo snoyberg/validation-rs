@@ -7,7 +7,7 @@ pub enum Validation<T, E> {
 }
 
 impl<T, E> Validation<T, E> {
-    pub fn to_result(self) -> Result<T, E> {
+    pub fn into_result(self) -> Result<T, E> {
         match self {
             Validation::Ok(t) => Ok(t),
             Validation::Err(e) => Err(e),
@@ -61,7 +61,7 @@ impl<T, VT: FromIterator<T>, E, VE: FromIterator<E>> FromIterator<Validation<T, 
     for Validation<VT, VE>
 {
     fn from_iter<I: IntoIterator<Item = Validation<T, E>>>(iter: I) -> Self {
-        iter.into_iter().map(|v| v.to_result()).collect()
+        iter.into_iter().map(|v| v.into_result()).collect()
     }
 }
 
@@ -80,7 +80,7 @@ mod tests {
         let input: Vec<Result<Good, Bad>> = vec![];
         let res: Validation<Vec<Good>, Vec<Bad>> = input.into_iter().collect();
         assert_eq!(res, Validation::Ok(vec![]));
-        assert_eq!(res.to_result(), Ok(vec![]));
+        assert_eq!(res.into_result(), Ok(vec![]));
     }
 
     #[test]
