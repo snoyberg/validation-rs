@@ -16,19 +16,20 @@ impl<T, E> Validation<T, E> {
 }
 
 // helper enum
-enum EVec<T, E> { VOk(Vec<T>), VErr(Vec<E>) }
+enum EVec<T, E> {
+    VOk(Vec<T>),
+    VErr(Vec<E>),
+}
 impl<T, E> FromIterator<Result<T, E>> for EVec<T, E> {
     fn from_iter<I: IntoIterator<Item = Result<T, E>>>(iter: I) -> Self {
         use EVec::*;
         let mut res = VOk(vec![]);
         for x in iter {
             match x {
-                Ok(t) => {
-                    match &mut res {
-                        VOk(v) => v.push(t),
-                        VErr(_) => (),
-                    }
-                }
+                Ok(t) => match &mut res {
+                    VOk(v) => v.push(t),
+                    VErr(_) => (),
+                },
                 Err(e) => {
                     res = match res {
                         VOk(_) => VErr(vec![e]),
@@ -44,7 +45,9 @@ impl<T, E> FromIterator<Result<T, E>> for EVec<T, E> {
     }
 }
 
-impl<T, VT: FromIterator<T>, E, VE: FromIterator<E>> FromIterator<Result<T, E>> for Validation<VT, VE> {
+impl<T, VT: FromIterator<T>, E, VE: FromIterator<E>> FromIterator<Result<T, E>>
+    for Validation<VT, VE>
+{
     fn from_iter<I: IntoIterator<Item = Result<T, E>>>(iter: I) -> Self {
         let evec: EVec<T, E> = iter.into_iter().collect();
         match evec {
@@ -54,7 +57,9 @@ impl<T, VT: FromIterator<T>, E, VE: FromIterator<E>> FromIterator<Result<T, E>> 
     }
 }
 
-impl<T, VT: FromIterator<T>, E, VE: FromIterator<E>> FromIterator<Validation<T, E>> for Validation<VT, VE> {
+impl<T, VT: FromIterator<T>, E, VE: FromIterator<E>> FromIterator<Validation<T, E>>
+    for Validation<VT, VE>
+{
     fn from_iter<I: IntoIterator<Item = Validation<T, E>>>(iter: I) -> Self {
         iter.into_iter().map(|v| v.to_result()).collect()
     }
