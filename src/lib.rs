@@ -15,33 +15,44 @@ impl<T, E> Validation<T, E> {
     }
 }
 
-// helper enum
-enum EVec<T, E> {
-    VOk(Vec<T>),
-    VErr(Vec<E>),
+struct Phase1<E, I> {
+    iter: I,
+    err: Option<E>,
 }
-impl<T, E> FromIterator<Result<T, E>> for EVec<T, E> {
-    fn from_iter<I: IntoIterator<Item = Result<T, E>>>(iter: I) -> Self {
-        use EVec::*;
-        let mut res = VOk(vec![]);
-        for x in iter {
-            match x {
-                Ok(t) => match &mut res {
-                    VOk(v) => v.push(t),
-                    VErr(_) => (),
-                },
-                Err(e) => {
-                    res = match res {
-                        VOk(_) => VErr(vec![e]),
-                        VErr(mut v) => {
-                            v.push(e);
-                            VErr(v)
-                        }
-                    };
-                }
+
+impl<T, E, I: Iterator<Item = Result<T, E>>> Iterator for &mut Phase1<E, I> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        assert!(self.err.is_none());
+        match self.iter.next()? {
+            Ok(t) => Some(t),
+            Err(e) => {
+                self.err = Some(e);
+                None
             }
         }
-        res
+    }
+}
+
+struct Phase2<E, I> {
+    first: Option<E>,
+    iter: I,
+}
+
+impl<T, E, I: Iterator<Item = Result<T, E>>> Iterator for Phase2<E, I> {
+    type Item = E;
+
+    fn next(&mut self) -> Option<E> {
+        match self.first.take() {
+            Some(e) => Some(e),
+            None => loop {
+                match self.iter.next()? {
+                    Ok(_) => (),
+                    Err(e) => break Some(e),
+                }
+            },
+        }
     }
 }
 
@@ -49,10 +60,20 @@ impl<T, VT: FromIterator<T>, E, VE: FromIterator<E>> FromIterator<Result<T, E>>
     for Validation<VT, VE>
 {
     fn from_iter<I: IntoIterator<Item = Result<T, E>>>(iter: I) -> Self {
-        let evec: EVec<T, E> = iter.into_iter().collect();
-        match evec {
-            EVec::VOk(vok) => Validation::Ok(vok.into_iter().collect()),
-            EVec::VErr(verr) => Validation::Err(verr.into_iter().collect()),
+        let mut phase1 = Phase1 {
+            err: None,
+            iter: iter.into_iter(),
+        };
+        let vt = (&mut phase1).collect();
+        match phase1.err {
+            None => Validation::Ok(vt),
+            Some(e) => {
+                let phase2 = Phase2 {
+                    first: Some(e),
+                    iter: phase1.iter,
+                };
+                Validation::Err(phase2.collect())
+            }
         }
     }
 }
